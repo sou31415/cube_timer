@@ -1,0 +1,9 @@
+{
+  "name": "Cube Timer",
+  "short_name": "CubeTimer",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#101014",
+  "theme_color": "#101014",
+  "icons": []
+}

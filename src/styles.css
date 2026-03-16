@@ -1,0 +1,127 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #101014;
+  color: #f3f3f6;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#app {
+  min-height: 100dvh;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.scramble-wrap p {
+  font-size: 1.2rem;
+  line-height: 1.4;
+}
+
+.timer-wrap {
+  border: 2px solid #333;
+  border-radius: 12px;
+  text-align: center;
+  padding: 24px 16px;
+  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+}
+
+.timer-wrap .state {
+  letter-spacing: 0.08em;
+}
+
+#timerDisplay {
+  font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 700;
+  margin: 0;
+  transition: color 100ms ease;
+}
+
+.timer-wrap[data-state='holding'] {
+  border-color: #d69e2e;
+}
+
+.timer-wrap[data-state='holding'] .state {
+  color: #d69e2e;
+}
+
+.timer-wrap[data-state='inspection'] {
+  border-color: #4fd1c5;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-stage='warn8'] {
+  background: #102125;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-stage='warn12'] {
+  background: #2b200f;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-stage='warn15'] {
+  background: #2d1111;
+  transform: scale(1.01);
+}
+
+.timer-wrap[data-state='solving'] {
+  border-color: #68d391;
+}
+
+.timer-wrap[data-state='solving'] #timerDisplay {
+  color: #9ae6b4;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.feedback,
+.context {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.feedback {
+  color: #f6ad55;
+}
+
+.context {
+  color: #90cdf4;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.break-prompt {
+  background: #1a202c;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.hidden {
+  display: none;
+}
+
+button {
+  min-height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: #dd6b20;
+  color: #fff;
+  font-weight: 700;
+}
