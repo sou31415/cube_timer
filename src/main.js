@@ -1,8 +1,9 @@
-import { createTimerEngine, INSPECTION_DNF_MS, INSPECTION_LIMIT_MS } from './timer-engine.js';
+import { createTimerEngine } from './timer-engine.js';
 import { createScrambleQueue } from './scramble-queue.js';
 import { createSessionStore, formatTime } from './session-store.js';
 import { clearSession, loadSession, saveSession } from './persistence.js';
 import { chooseContextHint, chooseMiniFeedback, shouldSuggestBreak } from './post-solve-insights.js';
+import { getInspectionVisual } from './inspection-visuals.js';
 
 const scrambleEl = document.getElementById('scramble');
 const timerDisplayEl = document.getElementById('timerDisplay');
@@ -24,7 +25,7 @@ const startBreakBtn = document.getElementById('startBreak');
 const restored = loadSession();
 const session = createSessionStore(restored?.solves ?? []);
 const timer = createTimerEngine();
-const scrambleQueue = createScrambleQueue();
+const scrambleQueue = createScrambleQueue(undefined, 3);
 
 let activeScramble = scrambleQueue.next();
 let pendingPenalty = 'OK';
@@ -145,6 +146,7 @@ function onRelease() {
   if (released.type === 'inspection-started') {
     inspectionCues = new Set();
     timerWrapEl.dataset.inspectionStage = 'none';
+    timerWrapEl.dataset.inspectionTone = 'calm';
     return;
   }
 
@@ -196,16 +198,16 @@ window.addEventListener('keydown', (e) => {
 
   e.preventDefault();
 
-  if (timer.getState() === 'inspection') {
-    startSolveFromInspection();
-    return;
-  }
-
   onPress();
 });
 
 window.addEventListener('keyup', (e) => {
   if (e.code !== 'Space') {
+    return;
+  }
+
+  if (timer.getState() === 'inspection') {
+    startSolveFromInspection();
     return;
   }
 
@@ -215,15 +217,15 @@ window.addEventListener('keyup', (e) => {
 });
 
 window.addEventListener('pointerdown', () => {
+  onPress();
+});
+
+window.addEventListener('pointerup', () => {
   if (timer.getState() === 'inspection') {
     startSolveFromInspection();
     return;
   }
 
-  onPress();
-});
-
-window.addEventListener('pointerup', () => {
   if (timer.getState() === 'holding') {
     onRelease();
   }
@@ -288,20 +290,26 @@ function updateStateUI() {
 
   if (state === 'holding') {
     const ready = timer.getReadyVisualState() === 'ready';
+    timerWrapEl.dataset.holdReady = ready ? 'true' : 'false';
     stateTextEl.textContent = ready ? 'READY!' : 'HOLD';
   } else if (state === 'inspection') {
     const elapsed = timer.getElapsedMs();
     maybeEmitInspectionCue(elapsed);
-    const remain = Math.max(0, 15 - elapsed / 1000);
-    timerDisplayEl.textContent = remain.toFixed(2);
-    stateTextEl.textContent = elapsed > INSPECTION_DNF_MS ? 'DNF!' : elapsed > INSPECTION_LIMIT_MS ? '+2' : 'INSPECTION';
+    const visual = getInspectionVisual(elapsed);
+    timerWrapEl.dataset.inspectionTone = visual.tone;
+    timerDisplayEl.textContent = (visual.remainingMs / 1000).toFixed(2);
+    stateTextEl.textContent = visual.text;
   } else if (state === 'solving') {
     timerDisplayEl.textContent = formatTime(timer.getElapsedMs());
     stateTextEl.textContent = 'SOLVING';
     timerWrapEl.dataset.inspectionStage = 'none';
+    timerWrapEl.dataset.inspectionTone = 'none';
+    timerWrapEl.dataset.holdReady = 'false';
   } else {
     stateTextEl.textContent = 'READY';
     timerWrapEl.dataset.inspectionStage = 'none';
+    timerWrapEl.dataset.inspectionTone = 'none';
+    timerWrapEl.dataset.holdReady = 'false';
   }
 }
 
