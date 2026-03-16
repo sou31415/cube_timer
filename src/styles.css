@@ -7,9 +7,13 @@ body {
   margin: 0;
   background: #101014;
   color: #f3f3f6;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #app {
+  touch-action: manipulation;
   min-height: 100dvh;
   max-width: 680px;
   margin: 0 auto;
@@ -52,6 +56,38 @@ body {
 
 .timer-wrap[data-state='inspection'] {
   border-color: #4fd1c5;
+}
+
+
+.timer-wrap[data-state='holding'][data-hold-ready='true'] {
+  border-color: #38b2ac;
+  background: #0f1f1f;
+}
+
+.timer-wrap[data-state='holding'][data-hold-ready='true'] #timerDisplay {
+  color: #81e6d9;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-tone='calm'] #timerDisplay {
+  color: #e2e8f0;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-tone='focus'] #timerDisplay {
+  color: #f6e05e;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-tone='alert'] #timerDisplay {
+  color: #f6ad55;
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-tone='imminent'] #timerDisplay {
+  color: #fc8181;
+  transform: scale(1.03);
+}
+
+.timer-wrap[data-state='inspection'][data-inspection-tone='overtime'] #timerDisplay,
+.timer-wrap[data-state='inspection'][data-inspection-tone='dnf'] #timerDisplay {
+  color: #f56565;
 }
 
 .timer-wrap[data-state='inspection'][data-inspection-stage='warn8'] {

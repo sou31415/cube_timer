@@ -3,6 +3,25 @@ function formatDelta(ms) {
   return `${sign}${(ms / 1000).toFixed(2)}s`;
 }
 
+export function computeRecentStability(solves, windowSize = 5) {
+  if (solves.length < windowSize) {
+    return null;
+  }
+
+  const recent = solves.slice(-windowSize).filter((solve) => solve.result !== 'DNF');
+  if (recent.length < 3) {
+    return null;
+  }
+
+  const mean = recent.reduce((sum, solve) => sum + solve.resultMs, 0) / recent.length;
+  const variance = recent.reduce((sum, solve) => {
+    const diff = solve.resultMs - mean;
+    return sum + diff * diff;
+  }, 0) / recent.length;
+
+  return Math.sqrt(variance);
+}
+
 export function chooseMiniFeedback({ solves, current, previous, ao5Ms, prevAo5Ms, inspectionMs }) {
   if (previous && current.result !== 'DNF' && previous.result !== 'DNF') {
     const delta = current.resultMs - previous.resultMs;
@@ -34,12 +53,18 @@ export function chooseMiniFeedback({ solves, current, previous, ao5Ms, prevAo5Ms
 }
 
 export function chooseContextHint({ solves, meanMs, ao5Ms, bestAo5Ms }) {
+  const stability = computeRecentStability(solves, 5);
+
   if (ao5Ms !== null && ao5Ms !== 'DNF' && bestAo5Ms !== null) {
     const diff = ao5Ms - bestAo5Ms;
     if (diff <= 0) {
       return 'Context: ベストAo5を更新';
     }
     return `Context: Best Ao5まで ${(diff / 1000).toFixed(2)}s`;
+  }
+
+  if (stability !== null && solves.length >= 5) {
+    return `Context: 直近5本の安定度 ±${(stability / 1000).toFixed(2)}s`;
   }
 
   if (meanMs !== null && solves.length >= 3) {

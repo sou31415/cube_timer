@@ -44,3 +44,21 @@ test('inspection penalty transitions to +2 and DNF', () => {
   start = engine2.startSolveFromInspection();
   assert.equal(start.penalty, 'DNF');
 });
+
+
+test('press during inspection does not start solve implicitly', () => {
+  const time = fakeNow();
+  const engine = createTimerEngine(time.now);
+
+  engine.pressStart();
+  time.tick(250);
+  engine.releaseStart();
+
+  const pressed = engine.pressStart();
+  assert.equal(pressed.type, 'noop');
+  assert.equal(engine.getState(), 'inspection');
+
+  const started = engine.startSolveFromInspection();
+  assert.equal(started.type, 'solve-started');
+  assert.equal(engine.getState(), 'solving');
+});
