@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#101014" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>Cube Timer</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section class="scramble-wrap">
+        <h1>3x3 Timer</h1>
+        <p id="scramble">scramble loading...</p>
+      </section>
+
+      <section class="timer-wrap" id="timerWrap" data-state="idle" data-inspection-stage="none">
+        <p class="state" id="stateText">READY</p>
+        <p id="timerDisplay">0.00</p>
+      </section>
+
+      <section class="stats">
+        <p>Last: <span id="lastSolve">-</span></p>
+        <p>Mean: <span id="mean">-</span></p>
+        <p>Ao5: <span id="ao5">-</span></p>
+      </section>
+
+      <p id="feedback" class="feedback" aria-live="polite"></p>
+      <p id="contextHint" class="context" aria-live="polite"></p>
+
+      <section id="quickActions" class="quick-actions hidden" aria-label="post solve quick actions">
+        <button id="quickPlus2" type="button">+2</button>
+        <button id="quickDnf" type="button">DNF</button>
+        <button id="quickUndo" type="button">Undo</button>
+      </section>
+
+      <section id="breakPrompt" class="break-prompt hidden">
+        <p>集中維持のため短い休憩を提案します。</p>
+        <button id="startBreak" type="button">休憩に入る</button>
+      </section>
+
+      <button id="resetButton" type="button">セッションをリセット</button>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
