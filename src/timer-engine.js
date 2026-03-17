@@ -14,9 +14,15 @@ export function createTimerEngine(now = () => performance.now()) {
 
   function pressStart() {
     if (state === 'idle') {
+      inspectionStart = now();
+      state = 'inspection';
+      return { type: 'inspection-started' };
+    }
+
+    if (state === 'inspection') {
       holdStart = now();
-      state = 'holding';
-      return { type: 'holding' };
+      state = 'inspection-holding';
+      return { type: 'inspection-holding' };
     }
 
     if (state === 'solving') {
@@ -32,23 +38,13 @@ export function createTimerEngine(now = () => performance.now()) {
   }
 
   function releaseStart() {
-    if (state !== 'holding') {
+    if (state !== 'inspection-holding') {
       return { type: 'noop' };
     }
 
     if (now() - holdStart < HOLD_THRESHOLD_MS) {
-      state = 'idle';
-      return { type: 'hold-too-short' };
-    }
-
-    inspectionStart = now();
-    state = 'inspection';
-    return { type: 'inspection-started' };
-  }
-
-  function startSolveFromInspection() {
-    if (state !== 'inspection') {
-      return { type: 'noop' };
+      state = 'inspection';
+      return { type: 'solve-hold-too-short' };
     }
 
     const inspectionElapsedMs = now() - inspectionStart;
@@ -73,7 +69,7 @@ export function createTimerEngine(now = () => performance.now()) {
       return now() - solveStart;
     }
 
-    if (state === 'inspection') {
+    if (state === 'inspection' || state === 'inspection-holding') {
       return now() - inspectionStart;
     }
 
@@ -81,7 +77,7 @@ export function createTimerEngine(now = () => performance.now()) {
   }
 
   function getReadyVisualState() {
-    if (state !== 'holding') {
+    if (state !== 'inspection-holding') {
       return 'not-ready';
     }
 
@@ -92,7 +88,6 @@ export function createTimerEngine(now = () => performance.now()) {
     getState,
     pressStart,
     releaseStart,
-    startSolveFromInspection,
     getElapsedMs,
     getReadyVisualState,
   };

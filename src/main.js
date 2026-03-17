@@ -136,6 +136,13 @@ function onPress() {
   }
 
   const event = timer.pressStart();
+  if (event.type === 'inspection-started') {
+    inspectionCues = new Set();
+    timerWrapEl.dataset.inspectionStage = 'none';
+    timerWrapEl.dataset.inspectionTone = 'calm';
+    return;
+  }
+
   if (event.type === 'stopped') {
     finalizeSolve(event.elapsedMs, lastInspectionElapsedMs);
   }
@@ -143,15 +150,9 @@ function onPress() {
 
 function onRelease() {
   const released = timer.releaseStart();
-  if (released.type === 'inspection-started') {
-    inspectionCues = new Set();
-    timerWrapEl.dataset.inspectionStage = 'none';
-    timerWrapEl.dataset.inspectionTone = 'calm';
-    return;
-  }
-
-  if (released.type === 'hold-too-short') {
-    timerDisplayEl.textContent = '0.00';
+  if (released.type === 'solve-started') {
+    pendingPenalty = released.penalty;
+    lastInspectionElapsedMs = released.inspectionElapsedMs;
   }
 }
 
@@ -183,14 +184,6 @@ function maybeEmitInspectionCue(elapsedMs) {
   }
 }
 
-function startSolveFromInspection() {
-  const started = timer.startSolveFromInspection();
-  if (started.type === 'solve-started') {
-    pendingPenalty = started.penalty;
-    lastInspectionElapsedMs = started.inspectionElapsedMs;
-  }
-}
-
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' || e.repeat) {
     return;
@@ -206,12 +199,7 @@ window.addEventListener('keyup', (e) => {
     return;
   }
 
-  if (timer.getState() === 'inspection') {
-    startSolveFromInspection();
-    return;
-  }
-
-  if (timer.getState() === 'holding') {
+  if (timer.getState() === 'inspection-holding') {
     onRelease();
   }
 });
@@ -221,12 +209,7 @@ window.addEventListener('pointerdown', () => {
 });
 
 window.addEventListener('pointerup', () => {
-  if (timer.getState() === 'inspection') {
-    startSolveFromInspection();
-    return;
-  }
-
-  if (timer.getState() === 'holding') {
+  if (timer.getState() === 'inspection-holding') {
     onRelease();
   }
 });
@@ -286,19 +269,19 @@ resetButton.addEventListener('click', () => {
 
 function updateStateUI() {
   const state = timer.getState();
-  timerWrapEl.dataset.state = state;
+  const isInspectionHolding = state === 'inspection-holding';
+  const displayState = isInspectionHolding ? 'inspection' : state;
+  timerWrapEl.dataset.state = displayState;
 
-  if (state === 'holding') {
-    const ready = timer.getReadyVisualState() === 'ready';
-    timerWrapEl.dataset.holdReady = ready ? 'true' : 'false';
-    stateTextEl.textContent = ready ? 'READY!' : 'HOLD';
-  } else if (state === 'inspection') {
+  if (state === 'inspection' || isInspectionHolding) {
     const elapsed = timer.getElapsedMs();
     maybeEmitInspectionCue(elapsed);
     const visual = getInspectionVisual(elapsed);
+    const ready = timer.getReadyVisualState() === 'ready';
     timerWrapEl.dataset.inspectionTone = visual.tone;
     timerDisplayEl.textContent = (visual.remainingMs / 1000).toFixed(2);
-    stateTextEl.textContent = visual.text;
+    timerWrapEl.dataset.holdReady = isInspectionHolding && ready ? 'true' : 'false';
+    stateTextEl.textContent = isInspectionHolding ? (ready ? 'READY!' : 'HOLD') : visual.text;
   } else if (state === 'solving') {
     timerDisplayEl.textContent = formatTime(timer.getElapsedMs());
     stateTextEl.textContent = 'SOLVING';

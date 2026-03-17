@@ -46,25 +46,17 @@ body {
   transition: color 100ms ease;
 }
 
-.timer-wrap[data-state='holding'] {
-  border-color: #d69e2e;
-}
-
-.timer-wrap[data-state='holding'] .state {
-  color: #d69e2e;
-}
-
 .timer-wrap[data-state='inspection'] {
   border-color: #4fd1c5;
 }
 
 
-.timer-wrap[data-state='holding'][data-hold-ready='true'] {
+.timer-wrap[data-state='inspection'][data-hold-ready='true'] {
   border-color: #38b2ac;
   background: #0f1f1f;
 }
 
-.timer-wrap[data-state='holding'][data-hold-ready='true'] #timerDisplay {
+.timer-wrap[data-state='inspection'][data-hold-ready='true'] #timerDisplay {
   color: #81e6d9;
 }
 
