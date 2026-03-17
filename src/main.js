@@ -4,10 +4,12 @@ import { createSessionStore, formatTime } from './session-store.js';
 import { clearSession, loadSession, saveSession } from './persistence.js';
 import { chooseContextHint, chooseMiniFeedback, shouldSuggestBreak } from './post-solve-insights.js';
 import { getInspectionVisual } from './inspection-visuals.js';
+import { bindTimerPointerInput, shouldHandleTimerKeyboardEvent } from './timer-input.js';
 
 const scrambleEl = document.getElementById('scramble');
 const timerDisplayEl = document.getElementById('timerDisplay');
 const stateTextEl = document.getElementById('stateText');
+const timerHitAreaEl = document.getElementById('timerHitArea');
 const timerWrapEl = document.getElementById('timerWrap');
 const lastSolveEl = document.getElementById('lastSolve');
 const meanEl = document.getElementById('mean');
@@ -185,7 +187,7 @@ function maybeEmitInspectionCue(elapsedMs) {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (e.code !== 'Space' || e.repeat) {
+  if (!shouldHandleTimerKeyboardEvent(e)) {
     return;
   }
 
@@ -199,16 +201,6 @@ window.addEventListener('keyup', (e) => {
     return;
   }
 
-  if (timer.getState() === 'inspection-holding') {
-    onRelease();
-  }
-});
-
-window.addEventListener('pointerdown', () => {
-  onPress();
-});
-
-window.addEventListener('pointerup', () => {
   if (timer.getState() === 'inspection-holding') {
     onRelease();
   }
@@ -236,18 +228,14 @@ quickUndo.addEventListener('click', () => {
 
 startBreakBtn.addEventListener('click', () => {
   isBreakMode = true;
-  setFeedback('休憩中。再開するには画面をタップ', 5000);
+  setFeedback('休憩中。再開するにはタイマーをタップ', 5000);
   breakPromptEl.classList.add('hidden');
 });
 
-window.addEventListener('pointerdown', () => {
-  if (!isBreakMode) {
-    return;
-  }
-
+function resumeBreak() {
   isBreakMode = false;
   setFeedback('休憩を終了して再開', 2000);
-});
+}
 
 resetButton.addEventListener('click', () => {
   if (!window.confirm('現在のセッションをリセットしますか？')) {
@@ -265,6 +253,15 @@ resetButton.addEventListener('click', () => {
   breakPromptEl.classList.add('hidden');
   quickActionsEl.classList.add('hidden');
   updateStats();
+});
+
+bindTimerPointerInput({
+  tapAreaEl: timerHitAreaEl,
+  isBreakMode: () => isBreakMode,
+  resumeBreak,
+  onPress,
+  onRelease,
+  getTimerState: () => timer.getState(),
 });
 
 function updateStateUI() {

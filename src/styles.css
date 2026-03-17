@@ -27,11 +27,20 @@ body {
   line-height: 1.4;
 }
 
+.timer-hit-area {
+  min-height: min(42dvh, 360px);
+  display: flex;
+}
+
 .timer-wrap {
+  flex: 1;
   border: 2px solid #333;
   border-radius: 12px;
   text-align: center;
   padding: 24px 16px;
+  display: grid;
+  align-content: center;
+  gap: 12px;
   transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
 }
 
@@ -149,4 +158,8 @@ button {
   background: #dd6b20;
   color: #fff;
   font-weight: 700;
+}
+
+#resetButton {
+  margin-top: 8px;
 }
