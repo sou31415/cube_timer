@@ -11,7 +11,9 @@ export function createScrambleRuntimeLoader({
       runtimePromise = Promise.all([importScrambleModule(), importSearchModule()]).then(([scrambleModule, searchModule]) => {
         searchModule.setSearchDebug({
           logPerf: false,
+          prioritizeEsbuildWorkaroundForWorkerInstantiation: true,
           scramblePrefetchLevel: 'none',
+          showWorkerInstantiationWarnings: false,
         });
 
         return {

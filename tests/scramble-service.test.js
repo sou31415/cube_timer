@@ -32,7 +32,9 @@ test('scramble runtime loader memoizes imports and configures search once', asyn
   assert.equal(first.randomScrambleForEvent, second.randomScrambleForEvent);
   assert.deepEqual(debugOptions, [{
     logPerf: false,
+    prioritizeEsbuildWorkaroundForWorkerInstantiation: true,
     scramblePrefetchLevel: 'none',
+    showWorkerInstantiationWarnings: false,
   }]);
 });
 
