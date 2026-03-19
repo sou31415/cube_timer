@@ -376,7 +376,7 @@ resetButton.addEventListener('click', () => {
   updateStats();
   syncStateUI();
   scheduleAfterPaint(() => {
-    void scrambleQueue.warm(1).then(loadNextScramble);
+    void loadNextScramble();
   });
 });
 
@@ -404,5 +404,5 @@ syncStateUI();
 registerServiceWorkerWhenIdle();
 
 scheduleAfterPaint(() => {
-  void scrambleQueue.warm(1).then(loadNextScramble);
+  void loadNextScramble();
 });
