@@ -53,3 +53,30 @@ test('can apply immediate correction and undo last solve', () => {
   snap = store.snapshot();
   assert.equal(snap.lastSolve, null);
 });
+
+test('snapshot keeps derived stats after undo and result updates', () => {
+  const store = createSessionStore([
+    { rawMs: 10000, resultMs: 10000, result: 'OK' },
+    { rawMs: 11000, resultMs: 11000, result: 'OK' },
+    { rawMs: 12000, resultMs: 12000, result: 'OK' },
+    { rawMs: 13000, resultMs: 13000, result: 'OK' },
+    { rawMs: 14000, resultMs: 14000, result: 'OK' },
+  ]);
+
+  let snap = store.snapshot();
+  assert.equal(snap.meanMs, 12000);
+  assert.equal(snap.ao5Ms, 12000);
+  assert.equal(snap.bestAo5Ms, 12000);
+
+  store.updateLastResult('DNF');
+  snap = store.snapshot();
+  assert.equal(snap.meanMs, 11500);
+  assert.equal(snap.ao5Ms, 12000);
+  assert.equal(snap.bestAo5Ms, 12000);
+
+  store.undoLast();
+  snap = store.snapshot();
+  assert.equal(snap.meanMs, 11500);
+  assert.equal(snap.ao5Ms, null);
+  assert.equal(snap.bestAo5Ms, null);
+});

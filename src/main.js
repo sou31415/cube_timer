@@ -1,6 +1,5 @@
 import './styles.css';
 
-import { registerSW } from 'virtual:pwa-register';
 import { createTimerEngine } from './timer-engine.js';
 import { createScrambleQueue } from './scramble-queue.js';
 import { createSessionStore, formatTime } from './session-store.js';
@@ -8,6 +7,7 @@ import { clearSession, loadSession, saveSession } from './persistence.js';
 import { chooseContextHint, chooseMiniFeedback, shouldSuggestBreak } from './post-solve-insights.js';
 import { getInspectionVisual } from './inspection-visuals.js';
 import { bindTimerPointerInput, shouldHandleTimerKeyboardEvent } from './timer-input.js';
+import { scheduleAfterPaint, scheduleIdleTask } from './startup-scheduler.js';
 
 const SCRAMBLE_LOADING_TEXT = 'scramble loading...';
 const SCRAMBLE_ERROR_TEXT = 'scramble unavailable';
@@ -43,8 +43,7 @@ let quickActionTimeout;
 let isBreakMode = false;
 let inspectionCues = new Set();
 let lastInspectionElapsedMs = 0;
-
-registerSW({ immediate: true });
+let activeFrameId = 0;
 
 function displayPenalty(result, ms) {
   if (result === 'DNF') {
@@ -96,6 +95,12 @@ function applyLastResult(result) {
   saveAndRender();
 }
 
+function scheduleScrambleWarm() {
+  scheduleIdleTask(() => {
+    void scrambleQueue.warm();
+  });
+}
+
 async function loadNextScramble() {
   const requestId = ++scrambleRequestId;
   activeScramble = '';
@@ -109,6 +114,7 @@ async function loadNextScramble() {
 
     activeScramble = scramble;
     scrambleEl.textContent = scramble;
+    scheduleScrambleWarm();
     return scramble;
   } catch (error) {
     if (requestId !== scrambleRequestId) {
@@ -121,6 +127,100 @@ async function loadNextScramble() {
     setFeedback('スクランブル生成に失敗', 4000);
     return '';
   }
+}
+
+function maybeVibrate(pattern) {
+  if (typeof navigator.vibrate === 'function') {
+    navigator.vibrate(pattern);
+  }
+}
+
+function maybeEmitInspectionCue(elapsedMs) {
+  if (elapsedMs >= 8000 && !inspectionCues.has(8)) {
+    inspectionCues.add(8);
+    timerWrapEl.dataset.inspectionStage = 'warn8';
+    maybeVibrate(20);
+    return;
+  }
+
+  if (elapsedMs >= 12000 && !inspectionCues.has(12)) {
+    inspectionCues.add(12);
+    timerWrapEl.dataset.inspectionStage = 'warn12';
+    maybeVibrate([20, 50, 20]);
+    return;
+  }
+
+  if (elapsedMs >= 15000 && !inspectionCues.has(15)) {
+    inspectionCues.add(15);
+    timerWrapEl.dataset.inspectionStage = 'warn15';
+    maybeVibrate([30, 70, 30]);
+  }
+}
+
+function renderStateUI() {
+  const state = timer.getState();
+  const isInspectionHolding = state === 'inspection-holding';
+  const displayState = isInspectionHolding ? 'inspection' : state;
+  timerWrapEl.dataset.state = displayState;
+
+  if (state === 'inspection' || isInspectionHolding) {
+    const elapsed = timer.getElapsedMs();
+    maybeEmitInspectionCue(elapsed);
+    const visual = getInspectionVisual(elapsed);
+    const ready = timer.getReadyVisualState() === 'ready';
+    timerWrapEl.dataset.inspectionTone = visual.tone;
+    timerDisplayEl.textContent = (visual.remainingMs / 1000).toFixed(2);
+    timerWrapEl.dataset.holdReady = isInspectionHolding && ready ? 'true' : 'false';
+    stateTextEl.textContent = isInspectionHolding ? (ready ? 'READY!' : 'HOLD') : visual.text;
+    return;
+  }
+
+  if (state === 'solving') {
+    timerDisplayEl.textContent = formatTime(timer.getElapsedMs());
+    stateTextEl.textContent = 'SOLVING';
+    timerWrapEl.dataset.inspectionStage = 'none';
+    timerWrapEl.dataset.inspectionTone = 'none';
+    timerWrapEl.dataset.holdReady = 'false';
+    return;
+  }
+
+  stateTextEl.textContent = 'READY';
+  timerWrapEl.dataset.inspectionStage = 'none';
+  timerWrapEl.dataset.inspectionTone = 'none';
+  timerWrapEl.dataset.holdReady = 'false';
+}
+
+function stopActiveUIUpdates() {
+  if (activeFrameId) {
+    cancelAnimationFrame(activeFrameId);
+    activeFrameId = 0;
+  }
+}
+
+function tickActiveUI() {
+  renderStateUI();
+
+  const state = timer.getState();
+  if (state === 'inspection' || state === 'inspection-holding' || state === 'solving') {
+    activeFrameId = requestAnimationFrame(tickActiveUI);
+    return;
+  }
+
+  activeFrameId = 0;
+}
+
+function syncStateUI() {
+  const state = timer.getState();
+
+  if (state === 'inspection' || state === 'inspection-holding' || state === 'solving') {
+    if (!activeFrameId) {
+      activeFrameId = requestAnimationFrame(tickActiveUI);
+    }
+    return;
+  }
+
+  stopActiveUIUpdates();
+  renderStateUI();
 }
 
 function finalizeSolve(elapsedMs, inspectionElapsedMs) {
@@ -164,6 +264,7 @@ function finalizeSolve(elapsedMs, inspectionElapsedMs) {
   showQuickActions();
   pendingPenalty = 'OK';
   lastInspectionElapsedMs = 0;
+  syncStateUI();
   void loadNextScramble();
 }
 
@@ -182,6 +283,12 @@ function onPress() {
     inspectionCues = new Set();
     timerWrapEl.dataset.inspectionStage = 'none';
     timerWrapEl.dataset.inspectionTone = 'calm';
+    syncStateUI();
+    return;
+  }
+
+  if (event.type === 'inspection-holding') {
+    syncStateUI();
     return;
   }
 
@@ -195,35 +302,11 @@ function onRelease() {
   if (released.type === 'solve-started') {
     pendingPenalty = released.penalty;
     lastInspectionElapsedMs = released.inspectionElapsedMs;
-  }
-}
-
-function maybeVibrate(pattern) {
-  if (typeof navigator.vibrate === 'function') {
-    navigator.vibrate(pattern);
-  }
-}
-
-function maybeEmitInspectionCue(elapsedMs) {
-  if (elapsedMs >= 8000 && !inspectionCues.has(8)) {
-    inspectionCues.add(8);
-    timerWrapEl.dataset.inspectionStage = 'warn8';
-    maybeVibrate(20);
+    syncStateUI();
     return;
   }
 
-  if (elapsedMs >= 12000 && !inspectionCues.has(12)) {
-    inspectionCues.add(12);
-    timerWrapEl.dataset.inspectionStage = 'warn12';
-    maybeVibrate([20, 50, 20]);
-    return;
-  }
-
-  if (elapsedMs >= 15000 && !inspectionCues.has(15)) {
-    inspectionCues.add(15);
-    timerWrapEl.dataset.inspectionStage = 'warn15';
-    maybeVibrate([30, 70, 30]);
-  }
+  syncStateUI();
 }
 
 window.addEventListener('keydown', (e) => {
@@ -291,7 +374,10 @@ resetButton.addEventListener('click', () => {
   breakPromptEl.classList.add('hidden');
   quickActionsEl.classList.add('hidden');
   updateStats();
-  void loadNextScramble();
+  syncStateUI();
+  scheduleAfterPaint(() => {
+    void scrambleQueue.warm(1).then(loadNextScramble);
+  });
 });
 
 bindTimerPointerInput({
@@ -303,36 +389,20 @@ bindTimerPointerInput({
   getTimerState: () => timer.getState(),
 });
 
-function updateStateUI() {
-  const state = timer.getState();
-  const isInspectionHolding = state === 'inspection-holding';
-  const displayState = isInspectionHolding ? 'inspection' : state;
-  timerWrapEl.dataset.state = displayState;
-
-  if (state === 'inspection' || isInspectionHolding) {
-    const elapsed = timer.getElapsedMs();
-    maybeEmitInspectionCue(elapsed);
-    const visual = getInspectionVisual(elapsed);
-    const ready = timer.getReadyVisualState() === 'ready';
-    timerWrapEl.dataset.inspectionTone = visual.tone;
-    timerDisplayEl.textContent = (visual.remainingMs / 1000).toFixed(2);
-    timerWrapEl.dataset.holdReady = isInspectionHolding && ready ? 'true' : 'false';
-    stateTextEl.textContent = isInspectionHolding ? (ready ? 'READY!' : 'HOLD') : visual.text;
-  } else if (state === 'solving') {
-    timerDisplayEl.textContent = formatTime(timer.getElapsedMs());
-    stateTextEl.textContent = 'SOLVING';
-    timerWrapEl.dataset.inspectionStage = 'none';
-    timerWrapEl.dataset.inspectionTone = 'none';
-    timerWrapEl.dataset.holdReady = 'false';
-  } else {
-    stateTextEl.textContent = 'READY';
-    timerWrapEl.dataset.inspectionStage = 'none';
-    timerWrapEl.dataset.inspectionTone = 'none';
-    timerWrapEl.dataset.holdReady = 'false';
-  }
+function registerServiceWorkerWhenIdle() {
+  window.addEventListener('load', () => {
+    scheduleIdleTask(async () => {
+      const { registerSW } = await import('virtual:pwa-register');
+      registerSW({ immediate: true });
+    });
+  });
 }
 
-setInterval(updateStateUI, 30);
 updateStats();
 scrambleEl.textContent = SCRAMBLE_LOADING_TEXT;
-void loadNextScramble();
+syncStateUI();
+registerServiceWorkerWhenIdle();
+
+scheduleAfterPaint(() => {
+  void scrambleQueue.warm(1).then(loadNextScramble);
+});

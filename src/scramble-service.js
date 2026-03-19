@@ -1,13 +1,33 @@
-import { randomScrambleForEvent } from 'cubing/scramble';
-import { setSearchDebug } from 'cubing/search';
-
 const EVENT_3X3 = '333';
 
-setSearchDebug({
-  logPerf: false,
-});
+export function createScrambleRuntimeLoader({
+  importScrambleModule = () => import('cubing/scramble'),
+  importSearchModule = () => import('cubing/search'),
+} = {}) {
+  let runtimePromise;
 
-export async function generateScramble(scrambleForEvent = randomScrambleForEvent) {
-  const alg = await scrambleForEvent(EVENT_3X3);
+  return async function loadScrambleRuntime() {
+    if (!runtimePromise) {
+      runtimePromise = Promise.all([importScrambleModule(), importSearchModule()]).then(([scrambleModule, searchModule]) => {
+        searchModule.setSearchDebug({
+          logPerf: false,
+          scramblePrefetchLevel: 'none',
+        });
+
+        return {
+          randomScrambleForEvent: scrambleModule.randomScrambleForEvent,
+        };
+      });
+    }
+
+    return runtimePromise;
+  };
+}
+
+const loadScrambleRuntime = createScrambleRuntimeLoader();
+
+export async function generateScramble(runtimeLoader = loadScrambleRuntime) {
+  const { randomScrambleForEvent } = await runtimeLoader();
+  const alg = await randomScrambleForEvent(EVENT_3X3);
   return alg.toString();
 }

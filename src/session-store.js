@@ -47,15 +47,61 @@ function recalculateResultMs(rawMs, result) {
   return rawMs;
 }
 
+function emptyStats() {
+  return {
+    sumValidMs: 0,
+    validCount: 0,
+    ao5Ms: null,
+    bestAo5Ms: null,
+    recentSolves: [],
+  };
+}
+
+function buildStats(solves) {
+  let stats = emptyStats();
+
+  for (const solve of solves) {
+    stats = appendStats(stats, solve);
+  }
+
+  return stats;
+}
+
+function appendStats(stats, solve) {
+  const valid = validMs(solve);
+  const recentSolves = [...stats.recentSolves, solve].slice(-5);
+  const ao5Ms = recentSolves.length === 5 ? computeAo5(recentSolves) : null;
+
+  let bestAo5Ms = stats.bestAo5Ms;
+  if (ao5Ms !== null && ao5Ms !== 'DNF') {
+    bestAo5Ms = bestAo5Ms === null ? ao5Ms : Math.min(bestAo5Ms, ao5Ms);
+  }
+
+  return {
+    sumValidMs: stats.sumValidMs + (valid ?? 0),
+    validCount: stats.validCount + (valid === null ? 0 : 1),
+    ao5Ms,
+    bestAo5Ms,
+    recentSolves,
+  };
+}
+
 export function createSessionStore(initial = []) {
   let solves = [...initial];
+  let stats = buildStats(solves);
+
+  function rebuildStats() {
+    stats = buildStats(solves);
+  }
 
   function addSolve(solve) {
     solves.push(solve);
+    stats = appendStats(stats, solve);
   }
 
   function reset() {
     solves = [];
+    stats = emptyStats();
   }
 
   function undoLast() {
@@ -63,7 +109,9 @@ export function createSessionStore(initial = []) {
       return null;
     }
 
-    return solves.pop();
+    const removed = solves.pop();
+    rebuildStats();
+    return removed;
   }
 
   function updateLastResult(result) {
@@ -74,36 +122,17 @@ export function createSessionStore(initial = []) {
 
     last.result = result;
     last.resultMs = recalculateResultMs(last.rawMs, result);
+    rebuildStats();
     return last;
-  }
-
-  function bestAo5Ms() {
-    if (solves.length < 5) {
-      return null;
-    }
-
-    const values = [];
-    for (let i = 5; i <= solves.length; i += 1) {
-      const value = computeAo5(solves.slice(0, i));
-      if (value !== null && value !== 'DNF') {
-        values.push(value);
-      }
-    }
-
-    if (!values.length) {
-      return null;
-    }
-
-    return Math.min(...values);
   }
 
   function snapshot() {
     return {
       solves: [...solves],
       lastSolve: solves.at(-1) || null,
-      meanMs: computeMean(solves),
-      ao5Ms: computeAo5(solves),
-      bestAo5Ms: bestAo5Ms(),
+      meanMs: stats.validCount ? stats.sumValidMs / stats.validCount : null,
+      ao5Ms: stats.ao5Ms,
+      bestAo5Ms: stats.bestAo5Ms,
     };
   }
 
