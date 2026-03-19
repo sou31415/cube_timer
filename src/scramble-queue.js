@@ -1,19 +1,25 @@
 import { generateScramble } from './scramble-service.js';
 
+function createEntry(generator) {
+  return {
+    promise: Promise.resolve().then(() => generator()),
+  };
+}
+
 export function createScrambleQueue(generator = generateScramble, preloadSize = 2) {
   const queue = [];
 
   function fill() {
     while (queue.length < preloadSize) {
-      queue.push(generator());
+      queue.push(createEntry(generator));
     }
   }
 
-  function next() {
+  async function next() {
     fill();
     const current = queue.shift();
     fill();
-    return current;
+    return current.promise;
   }
 
   fill();
@@ -21,6 +27,6 @@ export function createScrambleQueue(generator = generateScramble, preloadSize = 
   return {
     next,
     size: () => queue.length,
-    peek: () => [...queue],
+    peek: async () => Promise.all(queue.map((entry) => entry.promise)),
   };
 }

@@ -1,24 +1,13 @@
-const FACES = ['R', 'L', 'U', 'D', 'F', 'B'];
-const SUFFIXES = ['', "'", '2'];
+import { randomScrambleForEvent } from 'cubing/scramble';
+import { setSearchDebug } from 'cubing/search';
 
-function randomItem(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
+const EVENT_3X3 = '333';
 
-export function generateScramble(length = 20) {
-  const moves = [];
+setSearchDebug({
+  logPerf: false,
+});
 
-  while (moves.length < length) {
-    const face = randomItem(FACES);
-    const suffix = randomItem(SUFFIXES);
-
-    const prev = moves[moves.length - 1];
-    if (prev && prev[0] === face) {
-      continue;
-    }
-
-    moves.push(`${face}${suffix}`);
-  }
-
-  return moves.join(' ');
+export async function generateScramble(scrambleForEvent = randomScrambleForEvent) {
+  const alg = await scrambleForEvent(EVENT_3X3);
+  return alg.toString();
 }
