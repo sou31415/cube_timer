@@ -1,24 +1,35 @@
-const FACES = ['R', 'L', 'U', 'D', 'F', 'B'];
-const SUFFIXES = ['', "'", '2'];
+const EVENT_3X3 = '333';
 
-function randomItem(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
+export function createScrambleRuntimeLoader({
+  importScrambleModule = () => import('cubing/scramble'),
+  importSearchModule = () => import('cubing/search'),
+} = {}) {
+  let runtimePromise;
 
-export function generateScramble(length = 20) {
-  const moves = [];
+  return async function loadScrambleRuntime() {
+    if (!runtimePromise) {
+      runtimePromise = Promise.all([importScrambleModule(), importSearchModule()]).then(([scrambleModule, searchModule]) => {
+        searchModule.setSearchDebug({
+          logPerf: false,
+          prioritizeEsbuildWorkaroundForWorkerInstantiation: true,
+          scramblePrefetchLevel: 'none',
+          showWorkerInstantiationWarnings: false,
+        });
 
-  while (moves.length < length) {
-    const face = randomItem(FACES);
-    const suffix = randomItem(SUFFIXES);
-
-    const prev = moves[moves.length - 1];
-    if (prev && prev[0] === face) {
-      continue;
+        return {
+          randomScrambleForEvent: scrambleModule.randomScrambleForEvent,
+        };
+      });
     }
 
-    moves.push(`${face}${suffix}`);
-  }
+    return runtimePromise;
+  };
+}
 
-  return moves.join(' ');
+const loadScrambleRuntime = createScrambleRuntimeLoader();
+
+export async function generateScramble(runtimeLoader = loadScrambleRuntime) {
+  const { randomScrambleForEvent } = await runtimeLoader();
+  const alg = await randomScrambleForEvent(EVENT_3X3);
+  return alg.toString();
 }

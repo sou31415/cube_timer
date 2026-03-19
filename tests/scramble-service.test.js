@@ -1,16 +1,55 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateScramble } from '../src/scramble-service.js';
+import { createScrambleRuntimeLoader, generateScramble } from '../src/scramble-service.js';
 
-test('scramble has expected move tokens and avoids same face in sequence', () => {
-  const scramble = generateScramble(25);
-  const tokens = scramble.split(' ');
-  assert.equal(tokens.length, 25);
+test('scramble runtime loader memoizes imports and configures search once', async () => {
+  let scrambleImports = 0;
+  let searchImports = 0;
+  const debugOptions = [];
 
-  for (let i = 0; i < tokens.length; i += 1) {
-    assert.match(tokens[i], /^[RLUDFB](2|'|)?$/);
-    if (i > 0) {
-      assert.notEqual(tokens[i][0], tokens[i - 1][0]);
-    }
-  }
+  const loadRuntime = createScrambleRuntimeLoader({
+    importScrambleModule: async () => {
+      scrambleImports += 1;
+      return {
+        randomScrambleForEvent: async () => ({
+          toString: () => "R U R' U'",
+        }),
+      };
+    },
+    importSearchModule: async () => {
+      searchImports += 1;
+      return {
+        setSearchDebug: (options) => debugOptions.push(options),
+      };
+    },
+  });
+
+  const first = await loadRuntime();
+  const second = await loadRuntime();
+
+  assert.equal(scrambleImports, 1);
+  assert.equal(searchImports, 1);
+  assert.equal(first.randomScrambleForEvent, second.randomScrambleForEvent);
+  assert.deepEqual(debugOptions, [{
+    logPerf: false,
+    prioritizeEsbuildWorkaroundForWorkerInstantiation: true,
+    scramblePrefetchLevel: 'none',
+    showWorkerInstantiationWarnings: false,
+  }]);
+});
+
+test('generateScramble requests a 3x3 scramble and serializes the alg', async () => {
+  let requestedEvent = '';
+
+  const scramble = await generateScramble(async () => ({
+    randomScrambleForEvent: async (eventId) => {
+      requestedEvent = eventId;
+      return {
+        toString: () => "R U R' U'",
+      };
+    },
+  }));
+
+  assert.equal(requestedEvent, '333');
+  assert.equal(scramble, "R U R' U'");
 });
